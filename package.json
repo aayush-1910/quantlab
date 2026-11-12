@@ -1,0 +1,10 @@
+{
+  "name": "quantlab-workspace",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "web:dev": "pnpm --filter @quantlab/web dev",
+    "web:build": "pnpm --filter @quantlab/web build",
+    "web:check": "pnpm --filter @quantlab/web lint && pnpm --filter @quantlab/web typecheck && pnpm --filter @quantlab/web test"
+  }
+}

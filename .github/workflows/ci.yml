@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python (lint, types, tests, migrations)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          # Throwaway CI-only database; not a secret.
+          POSTGRES_USER: quantlab
+          POSTGRES_PASSWORD: quantlab
+          POSTGRES_DB: quantlab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quantlab -d quantlab_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      QUANTLAB_TEST_DATABASE_URL: postgresql+psycopg://quantlab:quantlab@localhost:5432/quantlab_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy
+      - run: uv run pytest
+
+  web:
+    name: Web (lint, types, tests, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @quantlab/web lint
+      - run: pnpm --filter @quantlab/web typecheck
+      - run: pnpm --filter @quantlab/web test
+      - run: pnpm --filter @quantlab/web build

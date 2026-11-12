@@ -1,0 +1,54 @@
+[project]
+name = "quantlab"
+version = "0.0.1"
+description = "QUANTLAB - quantitative research and decision-support platform for Indian equities (research-only foundation)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.14",
+    "fastapi>=0.115",
+    "psycopg[binary]>=3.2.10",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "uvicorn>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+# Application monorepo, not a distributable library: the repo root is put on
+# sys.path (see pytest/mypy config) instead of building a wheel. See ADR 0002.
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "apps/api/tests"]
+addopts = "-ra --strict-markers --import-mode=importlib"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["quantlab", "apps/api", "database/migrations", "tests"]
+exclude = ["apps/web/"]
+explicit_package_bases = true
+namespace_packages = true

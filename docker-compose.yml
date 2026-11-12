@@ -1,0 +1,26 @@
+# Local development infrastructure only. The API and web app run on the host
+# (see README). Redis, MLflow and workers are added when a phase first needs them.
+name: quantlab
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      # Local-only development credentials; never reuse outside your machine.
+      POSTGRES_USER: quantlab
+      POSTGRES_PASSWORD: quantlab
+      POSTGRES_DB: quantlab
+    ports:
+      # Host port 5433, not 5432, so it cannot collide with a PostgreSQL
+      # installed directly on the developer machine.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quantlab -d quantlab"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
