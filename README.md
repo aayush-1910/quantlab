@@ -10,20 +10,21 @@ The full product and engineering specification is
 > QUANTLAB is research software. It makes no claim of returns, profitability or predictive
 > accuracy, and it is not investment advice.
 
-## Current status: Phase 1 (market data foundation)
+## Current status: Phase 2 (market explorer)
 
 What exists today:
 
 | Piece | State |
 |---|---|
 | FastAPI app: health, readiness, instruments, daily bars, dataset provenance | Working, tested |
+| Market analytics API: per-instrument coverage and gaps, two-instrument comparison, screener, watchlist | Working, tested against hand-calculated values |
 | Typed settings with safe execution defaults | Working, tested |
 | Instrument master with stable internal IDs and effective-dated symbols | Working, tested |
 | Provider boundary with two adapters: `SYNTHETIC_TEST_DATA` generator and user-supplied CSV | Working, tested |
 | Ingestion: immutable raw layer, validation with quarantine, versioned snapshots with manifests and checksums | Working, tested |
 | Idempotent re-ingestion and snapshot reproduction from raw data | Working, tested |
-| Alembic migrations (audit log, market-data catalog) | Applied and reverted on PostgreSQL 16 in tests |
-| Next.js shell with an Overview page that reads the health endpoint | Working, tested. Shows no market data yet |
+| Alembic migrations (audit log, market-data catalog, watchlist) | Applied and reverted on PostgreSQL 16 in tests |
+| Web app: Overview, Markets (search, coverage, watchlist), instrument page (chart, gaps, comparison), Stock Screener | Working. Library code unit-tested; screens checked by a scripted browser run that is not in CI |
 | Docker Compose (PostgreSQL only) | Written. **Not yet run** by the author of this change (no Docker daemon available) |
 | GitHub Actions CI | Written. **Not yet observed running** |
 
@@ -36,13 +37,17 @@ Known limitations of the data layer (details in the
 [data dictionary](docs/data_dictionary/daily-bars.md)):
 
 - No exchange trading calendar: holidays cannot be told apart from missing bars.
+- No index data: the chart compares against another instrument, not a benchmark, and the
+  screener's universe is "everything in the dataset", not an index membership.
+- Returns shown are price-only on the dataset's stated basis; on unadjusted data they are
+  wrong across splits and bonuses.
 - No corporate actions, index constituents or fundamentals. Adjustment basis is whatever the
   data supplier declares; it is recorded, not verified.
 - No authentication. Do not expose the API beyond localhost.
 
-What does **not** exist: market explorer UI, backtesting, ML, portfolio/risk, the AI
+What does **not** exist: indicator overlays, sector comparison, saved screens, backtesting, ML, portfolio/risk, the AI
 analyst, paper trading and any broker connectivity. There is no order-placement code of any
-kind, and the API has only read (GET) routes. The application refuses to start if
+kind. The only write routes in the API add and remove watchlist entries. The application refuses to start if
 `EXECUTION_MODE` asks for paper, broker or live modes, because those are not implemented
 (see [ADR 0003](docs/adr/0003-safe-by-default-execution-mode.md)).
 
@@ -113,7 +118,13 @@ GET /api/v1/market/bars?instrument_id=<id>&dataset_id=synthetic_fixture.daily_ba
 GET /api/v1/datasets/snapshots/synthetic_fixture.daily_bars-v1
 GET /api/v1/datasets/snapshots/synthetic_fixture.daily_bars-v1/quarantine
 GET /api/v1/datasets/ingestion-runs
+GET /api/v1/market/coverage?dataset_id=synthetic_fixture.daily_bars
+GET /api/v1/market/screener?dataset_id=synthetic_fixture.daily_bars&as_of=2024-02-29&sort=return_20d&order=desc
+GET /api/v1/market/compare?instrument_id=<id>&comparison_instrument_id=<id>&dataset_id=synthetic_fixture.daily_bars
 ```
+
+Or open the web app: `/markets` and `/screener` read the same routes. The web app prefers a
+dataset that is not synthetic test data and always shows which dataset it is using.
 
 ## Checks
 
@@ -137,7 +148,7 @@ and drop its tables. CI provides one. Without it, only the pure unit tests run.
 
 ```text
 apps/api/             FastAPI entry point, routes and API tests
-apps/web/             Next.js (App Router) frontend
+apps/web/             Next.js (App Router) frontend: app/ (screens), components/, lib/ (API client, formatting, chart geometry)
 quantlab/common/      Settings and database engine
 quantlab/data/        Market data: providers, validation, storage (catalog + lake), ingestion, query, CLI
 database/migrations/  Alembic migrations, written by hand
@@ -158,3 +169,4 @@ Directories for later modules are created when their phase begins, not before.
 - [System overview](docs/architecture/system-overview.md)
 - [Architecture decision records](docs/adr/)
 - [Data dictionary: instruments, daily bars, snapshots](docs/data_dictionary/daily-bars.md)
+- [Data dictionary: descriptive market analytics](docs/data_dictionary/market-analytics.md)

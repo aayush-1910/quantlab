@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { fetchHealth, parseHealth } from "@/lib/api";
-import { NAV_ITEMS } from "@/lib/navigation";
+import { NAV_ITEMS, isActive } from "@/lib/navigation";
 
 const validPayload = {
   status: "ok",
@@ -77,6 +77,19 @@ describe("navigation", () => {
   });
 
   it("links only to implemented screens", () => {
-    expect(NAV_ITEMS.filter((item) => item.href).map((item) => item.href)).toEqual(["/"]);
+    expect(NAV_ITEMS.filter((item) => item.href).map((item) => item.href)).toEqual([
+      "/",
+      "/markets",
+      "/screener",
+    ]);
+  });
+
+  it("marks exactly the current section as active", () => {
+    expect(isActive("/", "/")).toBe(true);
+    expect(isActive("/", "/markets")).toBe(false);
+    expect(isActive("/markets", "/markets")).toBe(true);
+    expect(isActive("/markets", "/markets/abc")).toBe(true);
+    expect(isActive("/markets", "/marketsx")).toBe(false);
+    expect(isActive("/screener", "/markets")).toBe(false);
   });
 });
