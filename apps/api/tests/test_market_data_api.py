@@ -105,6 +105,7 @@ def test_bars_carry_provenance_units_and_exact_decimals(client: TestClient, inge
             "turnover": None,
         }
     ]
+    assert body["gaps"] == []
     assert any("quarantined" in warning for warning in body["quality_warnings"])
 
 
@@ -261,7 +262,16 @@ def test_readiness_reports_database_state_without_leaking_the_url(client: TestCl
     assert "s3cret-value" not in response.text
 
 
-def test_only_read_routes_exist(client: TestClient) -> None:
+def test_the_only_write_routes_are_the_watchlist(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
 
-    assert {method for operations in paths.values() for method in operations} == {"get"}
+    writes = {
+        (path, method)
+        for path, operations in paths.items()
+        for method in operations
+        if method != "get"
+    }
+    assert writes == {
+        ("/api/v1/watchlist/{instrument_id}", "put"),
+        ("/api/v1/watchlist/{instrument_id}", "delete"),
+    }

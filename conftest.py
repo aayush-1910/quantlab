@@ -51,8 +51,9 @@ def db_engine(monkeypatch: pytest.MonkeyPatch) -> Iterator[Engine]:
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE audit_events, ingestion_runs, dataset_snapshots, raw_objects, "
-                "provider_instrument_ids, instrument_symbols, instruments RESTART IDENTITY CASCADE"
+                "TRUNCATE watchlist_items, audit_events, ingestion_runs, dataset_snapshots, "
+                "raw_objects, provider_instrument_ids, instrument_symbols, instruments "
+                "RESTART IDENTITY CASCADE"
             )
         )
     try:

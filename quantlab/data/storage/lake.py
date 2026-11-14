@@ -244,6 +244,12 @@ class DataLake:
                 problems.append(f"{expected.path}: checksum mismatch")
         return problems
 
+    def bars_path(self, manifest: SnapshotManifest) -> Path:
+        path = self._snapshot_dir(manifest.dataset_id, manifest.version) / BARS_FILE
+        if not path.is_file():
+            raise LakeIntegrityError(f"snapshot data file is missing: {manifest.snapshot_id}")
+        return path
+
     def read_bars(
         self,
         manifest: SnapshotManifest,
@@ -251,10 +257,7 @@ class DataLake:
         start: date | None = None,
         end: date | None = None,
     ) -> list[DailyBar]:
-        path = self._snapshot_dir(manifest.dataset_id, manifest.version) / BARS_FILE
-        if not path.is_file():
-            raise LakeIntegrityError(f"snapshot data file is missing: {manifest.snapshot_id}")
-        frame = pl.scan_parquet(path)
+        frame = pl.scan_parquet(self.bars_path(manifest))
         if instrument_id is not None:
             frame = frame.filter(pl.col("instrument_id") == instrument_id)
         if start is not None:

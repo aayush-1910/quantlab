@@ -106,3 +106,10 @@ ingestion_runs = Table(
     Column("quarantine_path", Text),
     Column("error", Text),
 )
+
+watchlist_items = Table(
+    "watchlist_items",
+    metadata,
+    Column("instrument_id", Text, ForeignKey("instruments.id"), primary_key=True),
+    Column("added_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)

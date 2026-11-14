@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 
 from apps.api.errors import install_error_handlers
-from apps.api.routes import datasets, health, instruments, market
+from apps.api.routes import datasets, health, instruments, market, watchlist
 from quantlab import __version__
 from quantlab.common.settings import get_settings
 
@@ -14,7 +14,7 @@ def create_app() -> FastAPI:
     settings = get_settings()  # fails fast on unsafe/unsupported configuration
     app = FastAPI(title=f"{settings.app_name} API", version=__version__)
     install_error_handlers(app)
-    for module in (health, instruments, market, datasets):
+    for module in (health, instruments, market, datasets, watchlist):
         app.include_router(module.router, prefix=API_V1_PREFIX)
     return app
 

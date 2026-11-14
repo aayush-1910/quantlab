@@ -106,6 +106,10 @@ def get_instrument(conn: Connection, instrument_id: str) -> Instrument | None:
     return _load_instruments(conn, [instrument_id]).get(instrument_id)
 
 
+def get_instruments(conn: Connection, instrument_ids: Sequence[str]) -> dict[str, Instrument]:
+    return _load_instruments(conn, instrument_ids)
+
+
 def search_instruments(
     conn: Connection,
     query: str | None = None,
@@ -483,3 +487,28 @@ def list_runs(conn: Connection, limit: int = 50) -> list[IngestionRun]:
         select(t.ingestion_runs).order_by(t.ingestion_runs.c.started_at.desc()).limit(limit)
     ).mappings()
     return [_run(row) for row in rows]
+
+
+# --- watchlist -----------------------------------------------------------------------
+
+
+def add_to_watchlist(conn: Connection, instrument_id: str) -> None:
+    conn.execute(
+        pg_insert(t.watchlist_items).values(instrument_id=instrument_id).on_conflict_do_nothing()
+    )
+
+
+def remove_from_watchlist(conn: Connection, instrument_id: str) -> None:
+    conn.execute(
+        t.watchlist_items.delete().where(t.watchlist_items.c.instrument_id == instrument_id)
+    )
+
+
+def list_watchlist(conn: Connection) -> list[tuple[Instrument, datetime]]:
+    rows = conn.execute(
+        select(t.watchlist_items).order_by(
+            t.watchlist_items.c.added_at, t.watchlist_items.c.instrument_id
+        )
+    ).all()
+    loaded = _load_instruments(conn, [row.instrument_id for row in rows])
+    return [(loaded[row.instrument_id], row.added_at) for row in rows]
