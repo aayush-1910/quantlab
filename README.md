@@ -10,23 +10,41 @@ The full product and engineering specification is
 > QUANTLAB is research software. It makes no claim of returns, profitability or predictive
 > accuracy, and it is not investment advice.
 
-## Current status: Phase 0 (engineering foundation)
+## Current status: Phase 1 (market data foundation)
 
 What exists today:
 
 | Piece | State |
 |---|---|
-| FastAPI app with `GET /api/v1/health` | Working, tested |
+| FastAPI app: health, readiness, instruments, daily bars, dataset provenance | Working, tested |
 | Typed settings with safe execution defaults | Working, tested |
-| Next.js shell with an Overview page that reads the health endpoint | Working, tested |
-| Alembic migrations (baseline: `audit_events` table) | Written; SQL rendering tested. **Not yet applied to a real PostgreSQL** on a developer machine |
-| Docker Compose (PostgreSQL only) | Written. **Not yet run** (Docker was unavailable when it was authored) |
-| GitHub Actions CI | Written. **Not yet run** (no remote repository yet) |
+| Instrument master with stable internal IDs and effective-dated symbols | Working, tested |
+| Provider boundary with two adapters: `SYNTHETIC_TEST_DATA` generator and user-supplied CSV | Working, tested |
+| Ingestion: immutable raw layer, validation with quarantine, versioned snapshots with manifests and checksums | Working, tested |
+| Idempotent re-ingestion and snapshot reproduction from raw data | Working, tested |
+| Alembic migrations (audit log, market-data catalog) | Applied and reverted on PostgreSQL 16 in tests |
+| Next.js shell with an Overview page that reads the health endpoint | Working, tested. Shows no market data yet |
+| Docker Compose (PostgreSQL only) | Written. **Not yet run** by the author of this change (no Docker daemon available) |
+| GitHub Actions CI | Written. **Not yet observed running** |
 
-What does **not** exist: market data, instruments, backtesting, ML, portfolio/risk, the AI
+**No real market data is included or connected.** No licensed provider has been integrated;
+the only way to load real data today is to supply your own CSV files, and you are
+responsible for having the right to use them. The synthetic generator produces made-up
+instruments and prices for development only.
+
+Known limitations of the data layer (details in the
+[data dictionary](docs/data_dictionary/daily-bars.md)):
+
+- No exchange trading calendar: holidays cannot be told apart from missing bars.
+- No corporate actions, index constituents or fundamentals. Adjustment basis is whatever the
+  data supplier declares; it is recorded, not verified.
+- No authentication. Do not expose the API beyond localhost.
+
+What does **not** exist: market explorer UI, backtesting, ML, portfolio/risk, the AI
 analyst, paper trading and any broker connectivity. There is no order-placement code of any
-kind. The application refuses to start if `EXECUTION_MODE` asks for paper, broker or live
-modes, because those are not implemented (see [ADR 0003](docs/adr/0003-safe-by-default-execution-mode.md)).
+kind, and the API has only read (GET) routes. The application refuses to start if
+`EXECUTION_MODE` asks for paper, broker or live modes, because those are not implemented
+(see [ADR 0003](docs/adr/0003-safe-by-default-execution-mode.md)).
 
 ## Prerequisites
 
@@ -61,7 +79,41 @@ pnpm web:dev                                  # Web  -> http://localhost:3000
 ```
 
 The API serves interactive docs at `http://localhost:8000/docs`. The health endpoint and the
-web shell do not need the database.
+web shell do not need the database; every other route does.
+
+## Loading data
+
+Data lands in the lake under `DATA_DIR` (default `./data`, git-ignored) and in PostgreSQL.
+
+```sh
+# Development data: generated, labelled SYNTHETIC_TEST_DATA, never real prices
+uv run python -m quantlab.data.cli ingest-synthetic
+
+# Your own files: a directory with instruments.csv and daily_bars.csv
+# (format: docs/data_dictionary/daily-bars.md)
+uv run python -m quantlab.data.cli ingest-csv path/to/dir \
+    --source-id my_vendor_eod \
+    --licence-reference "Vendor X agreement, 2026-10" \
+    --dataset-version 2026-11-13 \
+    --adjustment-basis UNADJUSTED
+
+uv run python -m quantlab.data.cli snapshots
+uv run python -m quantlab.data.cli reproduce synthetic_fixture.daily_bars-v1
+```
+
+Running the same ingestion twice writes nothing the second time. A changed file produces a
+new snapshot version; earlier versions stay readable. `reproduce` rebuilds a snapshot from
+its raw files and compares checksums.
+
+Then query it:
+
+```text
+GET /api/v1/instruments?q=SYNTH
+GET /api/v1/market/bars?instrument_id=<id>&dataset_id=synthetic_fixture.daily_bars&start=2024-01-01&end=2024-01-31
+GET /api/v1/datasets/snapshots/synthetic_fixture.daily_bars-v1
+GET /api/v1/datasets/snapshots/synthetic_fixture.daily_bars-v1/quarantine
+GET /api/v1/datasets/ingestion-runs
+```
 
 ## Checks
 
@@ -77,19 +129,20 @@ pnpm --filter @quantlab/web test
 pnpm --filter @quantlab/web build
 ```
 
-One migration test applies and reverts migrations on a real database. It is skipped unless
-`QUANTLAB_TEST_DATABASE_URL` points at a **disposable** PostgreSQL database (it drops the
-migrated tables). CI provides one.
+Tests that need PostgreSQL (migrations, ingestion, market-data API) are skipped unless
+`QUANTLAB_TEST_DATABASE_URL` points at a **disposable** PostgreSQL database: they truncate
+and drop its tables. CI provides one. Without it, only the pure unit tests run.
 
 ## Layout
 
 ```text
 apps/api/             FastAPI entry point, routes and API tests
 apps/web/             Next.js (App Router) frontend
-quantlab/             Python domain and application packages (currently: common/settings)
+quantlab/common/      Settings and database engine
+quantlab/data/        Market data: providers, validation, storage (catalog + lake), ingestion, query, CLI
 database/migrations/  Alembic migrations, written by hand
 tests/                Cross-cutting Python tests (unit, integration)
-docs/                 Architecture overview and ADRs
+docs/                 Architecture overview, ADRs and the data dictionary
 ```
 
 Directories for later modules are created when their phase begins, not before.
@@ -104,3 +157,4 @@ Directories for later modules are created when their phase begins, not before.
 
 - [System overview](docs/architecture/system-overview.md)
 - [Architecture decision records](docs/adr/)
+- [Data dictionary: instruments, daily bars, snapshots](docs/data_dictionary/daily-bars.md)

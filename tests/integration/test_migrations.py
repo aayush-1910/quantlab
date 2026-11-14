@@ -6,25 +6,15 @@ is set (CI sets it; see .github/workflows/ci.yml). It must point at a disposable
 database: the test downgrades to base, dropping all migrated tables.
 """
 
-import os
-from pathlib import Path
-
 import pytest
 from alembic import command
-from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect
 
+from conftest import TEST_DATABASE_URL
+from conftest import alembic_config as _config
 from quantlab.common.settings import get_settings
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-TEST_DATABASE_URL = os.environ.get("QUANTLAB_TEST_DATABASE_URL")
-
-
-def _config() -> Config:
-    config = Config(str(REPO_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(REPO_ROOT / "database" / "migrations"))
-    return config
+from quantlab.data.storage import tables
 
 
 def test_migration_history_has_a_single_head() -> None:
@@ -47,7 +37,19 @@ def test_migrations_apply_and_revert_on_postgres(monkeypatch: pytest.MonkeyPatch
     engine = create_engine(TEST_DATABASE_URL)
     try:
         command.upgrade(_config(), "head")
-        assert "audit_events" in inspect(engine).get_table_names()
+        inspector = inspect(engine)
+        assert "audit_events" in inspector.get_table_names()
+        # The hand-written migrations and the query-side table definitions must agree.
+        migrated = {
+            name: {column["name"] for column in inspector.get_columns(name)}
+            for name in inspector.get_table_names()
+            if name != "alembic_version"
+        }
+        defined = {
+            table.name: {column.name for column in table.columns}
+            for table in tables.metadata.sorted_tables
+        }
+        assert migrated == defined
 
         command.upgrade(_config(), "head")  # re-applying is a no-op
 

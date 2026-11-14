@@ -20,7 +20,8 @@ export default async function OverviewPage() {
       <header>
         <h1 className="text-xl font-semibold">Overview</h1>
         <p className="text-muted mt-1">
-          Foundation build. No market data is loaded and no research modules exist yet.
+          Foundation build. The web app does not display market data yet and no research modules
+          exist.
         </p>
       </header>
 
@@ -47,8 +48,8 @@ export default async function OverviewPage() {
           <Row label="Checked at (UTC)" value={result.checkedAt} />
         </dl>
         <p className="text-muted border-line border-t px-4 py-3 text-xs">
-          Liveness of the API process only. Database and data-provider status are not checked
-          yet.
+          Liveness of the API process only. Database and data-provider status are not shown
+          here yet.
         </p>
       </section>
 

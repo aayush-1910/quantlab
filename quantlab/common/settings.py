@@ -8,6 +8,7 @@ capability that does not exist (spec sections 1.4 and 9.4).
 
 from enum import StrEnum
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -55,6 +56,9 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://quantlab:quantlab@localhost:5433/quantlab",
         repr=False,  # may embed a password; keep it out of logs and tracebacks
     )
+
+    # Root of the file-based data lake (raw, normalized, curated). Git-ignored by default.
+    data_dir: Path = Path("data")
 
     execution_mode: ExecutionMode = ExecutionMode.RESEARCH_ONLY
     broker_mode: BrokerMode = BrokerMode.DISABLED
