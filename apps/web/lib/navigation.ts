@@ -14,8 +14,8 @@ export type NavItem = {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Overview", href: "/", phase: 0 },
-  { label: "Markets", phase: 2 },
-  { label: "Stock Screener", phase: 2 },
+  { label: "Markets", href: "/markets", phase: 2 },
+  { label: "Stock Screener", href: "/screener", phase: 2 },
   { label: "Strategy Lab", phase: 3 },
   { label: "ML Research", phase: 5 },
   { label: "Portfolio Lab", phase: 6 },
@@ -25,3 +25,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Experiment History", phase: 4 },
   { label: "Settings and Data Sources", phase: 1 },
 ];
+
+/** True when `pathname` is the item's screen or a page beneath it. */
+export function isActive(href: string, pathname: string): boolean {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}

@@ -18,8 +18,7 @@ report a mode it cannot honour, and later code might trust that value.
 - `BROKER_MODE` accepts only `disabled`.
 - The supported set is one constant, `SUPPORTED_EXECUTION_MODES`. A mode is added to it
   only in the change that implements and gates that mode (Phase 8 or 9).
-- Broker credential variables are not read by the application at all yet, and are left
-  out of `.env.example` until a phase needs them.
+- Broker credential variables are not read by the application at all yet.
 
 ## Consequences
 

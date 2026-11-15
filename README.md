@@ -1,67 +1,76 @@
 # QUANTLAB
 
-A quantitative research and decision-support platform for Indian listed equities (NSE cash
-equities first). The goal is a trustworthy, reproducible environment for testing market
-hypotheses, and rejecting them when the evidence does not support them.
+A quantitative research platform for Indian listed equities (NSE cash equities first).
+Research software only: no claim of returns and not investment advice.
 
-The full product and engineering specification is
-[QUANTLAB_CODEX_MASTER_SPEC.md](QUANTLAB_CODEX_MASTER_SPEC.md). It is the source of truth.
+Specification: [QUANTLAB_CODEX_MASTER_SPEC.md](QUANTLAB_CODEX_MASTER_SPEC.md)
 
-> QUANTLAB is research software. It makes no claim of returns, profitability or predictive
-> accuracy, and it is not investment advice.
+## Status
 
-## Current status: Phase 0 (engineering foundation)
+Built: market data ingestion with validation and versioned snapshots, an instrument master,
+a read API, a web app with a market explorer and a stock screener, and a deterministic
+daily-bar backtesting engine with a moving-average baseline strategy (command line only).
 
-What exists today:
+Not built: experiment registry, walk-forward validation, machine learning, portfolio and
+risk, the AI analyst, paper trading and broker connectivity. There is no order-placement
+code.
 
-| Piece | State |
-|---|---|
-| FastAPI app with `GET /api/v1/health` | Working, tested |
-| Typed settings with safe execution defaults | Working, tested |
-| Next.js shell with an Overview page that reads the health endpoint | Working, tested |
-| Alembic migrations (baseline: `audit_events` table) | Written; SQL rendering tested. **Not yet applied to a real PostgreSQL** on a developer machine |
-| Docker Compose (PostgreSQL only) | Written. **Not yet run** (Docker was unavailable when it was authored) |
-| GitHub Actions CI | Written. **Not yet run** (no remote repository yet) |
+No real market data and no real fee rates are included. Load your own CSV files or the
+synthetic test generator, and supply your own cost schedule for backtests.
 
-What does **not** exist: market data, instruments, backtesting, ML, portfolio/risk, the AI
-analyst, paper trading and any broker connectivity. There is no order-placement code of any
-kind. The application refuses to start if `EXECUTION_MODE` asks for paper, broker or live
-modes, because those are not implemented (see [ADR 0003](docs/adr/0003-safe-by-default-execution-mode.md)).
+## Requirements
 
-## Prerequisites
-
-- Python 3.12+ (developed on 3.14) and [uv](https://docs.astral.sh/uv/)
-- Node.js 24 with corepack (bundled), which provides the pinned pnpm
-- Docker, for the local PostgreSQL. On Windows, Docker Desktop needs WSL 2
-  (`wsl --install` from an administrator terminal, then reboot)
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
+- Node.js 24 with pnpm
+- PostgreSQL (a container is provided through Docker Compose)
 
 ## Setup
 
 ```sh
-# 1. Configuration (placeholders only; .env is git-ignored)
-cp .env.example .env
-
-# 2. Python dependencies
 uv sync
-
-# 3. Web dependencies (prefix with `corepack` if pnpm is not on your PATH)
 pnpm install
-
-# 4. Database (container listens on host port 5433, leaving 5432 free
-#    for any PostgreSQL installed directly on your machine)
 docker compose up -d postgres
 uv run alembic upgrade head
 ```
 
+Configuration is read from environment variables or a local `.env` file. The defaults work
+with the Compose database. The variables are defined in `quantlab/common/settings.py`.
+
 ## Run
 
 ```sh
-uv run uvicorn apps.api.main:app --reload     # API  -> http://localhost:8000/api/v1/health
-pnpm web:dev                                  # Web  -> http://localhost:3000
+uv run uvicorn apps.api.main:app --reload     # http://localhost:8000/docs
+pnpm web:dev                                  # http://localhost:3000
 ```
 
-The API serves interactive docs at `http://localhost:8000/docs`. The health endpoint and the
-web shell do not need the database.
+## Load data
+
+```sh
+# Generated test data, labelled SYNTHETIC_TEST_DATA
+uv run python -m quantlab.data.cli ingest-synthetic
+
+# Your own files: a directory with instruments.csv and daily_bars.csv
+uv run python -m quantlab.data.cli ingest-csv path/to/dir \
+    --source-id my_vendor_eod \
+    --licence-reference "Vendor X agreement, 2026-10" \
+    --dataset-version 2026-11-13 \
+    --adjustment-basis UNADJUSTED
+```
+
+The CSV format is described in [docs/data_dictionary/daily-bars.md](docs/data_dictionary/daily-bars.md).
+
+## Backtest
+
+```sh
+uv run python -m quantlab.backtesting.cli ma-crossover \
+    --dataset-id synthetic_fixture.daily_bars \
+    --fast 5 --slow 20 --initial-cash 1000000 \
+    --slippage-bps 5 --max-participation 0.1 --zero-costs
+```
+
+Prints a JSON report with net and gross metrics, a buy-and-hold benchmark, the assumptions
+used and the limitations that apply. A finished backtest is not a validated strategy. See
+[docs/research_methodology/backtesting.md](docs/research_methodology/backtesting.md).
 
 ## Checks
 
@@ -77,30 +86,12 @@ pnpm --filter @quantlab/web test
 pnpm --filter @quantlab/web build
 ```
 
-One migration test applies and reverts migrations on a real database. It is skipped unless
-`QUANTLAB_TEST_DATABASE_URL` points at a **disposable** PostgreSQL database (it drops the
-migrated tables). CI provides one.
-
-## Layout
-
-```text
-apps/api/             FastAPI entry point, routes and API tests
-apps/web/             Next.js (App Router) frontend
-quantlab/             Python domain and application packages (currently: common/settings)
-database/migrations/  Alembic migrations, written by hand
-tests/                Cross-cutting Python tests (unit, integration)
-docs/                 Architecture overview and ADRs
-```
-
-Directories for later modules are created when their phase begins, not before.
-
-## Rules that always apply
-
-- Never commit secrets, broker credentials, account identifiers or licensed market data.
-- Synthetic fixtures must be labelled `SYNTHETIC_TEST_DATA` and never appear in performance reports.
-- No live order placement without the separate, explicitly approved Phase 9 milestone.
+Database tests run only when `QUANTLAB_TEST_DATABASE_URL` points at a disposable PostgreSQL
+database. They truncate and drop its tables.
 
 ## Documentation
 
 - [System overview](docs/architecture/system-overview.md)
 - [Architecture decision records](docs/adr/)
+- [Data dictionary](docs/data_dictionary/)
+- [Backtesting methodology](docs/research_methodology/backtesting.md)
