@@ -1,6 +1,6 @@
 # System overview
 
-Last updated: 2026-11-14 (Phase 2). This describes what is implemented, not the target
+Last updated: 2026-11-15 (Phase 3). This describes what is implemented, not the target
 architecture. The target is in section 3 of the
 [master specification](../../QUANTLAB_CODEX_MASTER_SPEC.md).
 
@@ -44,6 +44,14 @@ flowchart LR
   - `analytics.py`: coverage, gap ranges, n-session returns, average volume, rebased
     comparison. Deterministic, `Decimal`-based, tested against hand-calculated cases.
   - `cli.py`: `ingest-synthetic`, `ingest-csv`, `snapshots`, `reproduce`.
+- **Backtesting (`quantlab/backtesting`)**: a pure library with no dependency on the API,
+  database or AI code. `engine.py` is the event-driven simulation, `costs.py` the
+  effective-dated cost schedule, `strategy.py` the strategy interface with the
+  moving-average and buy-and-hold strategies, `metrics.py` the performance statistics.
+  `runner.py` loads bars from a snapshot and assembles a report with provenance and
+  limitations; `cli.py` runs it. Not exposed through the API or the web app. See
+  [the methodology](../research_methodology/backtesting.md) and
+  [ADR 0006](../adr/0006-backtesting-engine.md).
 - **Settings (`quantlab/common/settings.py`)**: the single place environment configuration
   is read and validated. Unsupported execution or broker modes fail at startup.
 - **Database**: PostgreSQL, managed by hand-written Alembic migrations. `audit_events`
@@ -56,7 +64,8 @@ schemas and rules are in the [data dictionary](../data_dictionary/daily-bars.md)
 ## Not implemented
 
 Authentication, a licensed data provider, trading calendar, corporate actions, index
-constituents, fundamentals, indicator overlays, saved screens, backtesting, ML, portfolio/risk, AI
+constituents, fundamentals, indicator overlays, saved screens, experiment registry,
+walk-forward validation, ML, portfolio/risk, AI
 orchestration, background workers, Redis, MLflow, paper trading and broker adapters.
 
 ## Known limitations

@@ -8,12 +8,15 @@ Specification: [QUANTLAB_CODEX_MASTER_SPEC.md](QUANTLAB_CODEX_MASTER_SPEC.md)
 ## Status
 
 Built: market data ingestion with validation and versioned snapshots, an instrument master,
-a read API, and a web app with a market explorer and a stock screener.
+a read API, a web app with a market explorer and a stock screener, and a deterministic
+daily-bar backtesting engine with a moving-average baseline strategy (command line only).
 
-Not built: backtesting, machine learning, portfolio and risk, the AI analyst, paper trading
-and broker connectivity. There is no order-placement code.
+Not built: experiment registry, walk-forward validation, machine learning, portfolio and
+risk, the AI analyst, paper trading and broker connectivity. There is no order-placement
+code.
 
-No real market data is included. Load your own CSV files or the synthetic test generator.
+No real market data and no real fee rates are included. Load your own CSV files or the
+synthetic test generator, and supply your own cost schedule for backtests.
 
 ## Requirements
 
@@ -56,6 +59,19 @@ uv run python -m quantlab.data.cli ingest-csv path/to/dir \
 
 The CSV format is described in [docs/data_dictionary/daily-bars.md](docs/data_dictionary/daily-bars.md).
 
+## Backtest
+
+```sh
+uv run python -m quantlab.backtesting.cli ma-crossover \
+    --dataset-id synthetic_fixture.daily_bars \
+    --fast 5 --slow 20 --initial-cash 1000000 \
+    --slippage-bps 5 --max-participation 0.1 --zero-costs
+```
+
+Prints a JSON report with net and gross metrics, a buy-and-hold benchmark, the assumptions
+used and the limitations that apply. A finished backtest is not a validated strategy. See
+[docs/research_methodology/backtesting.md](docs/research_methodology/backtesting.md).
+
 ## Checks
 
 ```sh
@@ -78,3 +94,4 @@ database. They truncate and drop its tables.
 - [System overview](docs/architecture/system-overview.md)
 - [Architecture decision records](docs/adr/)
 - [Data dictionary](docs/data_dictionary/)
+- [Backtesting methodology](docs/research_methodology/backtesting.md)
